@@ -3,7 +3,11 @@ import numpy as np
 import pyautogui
 import os
 import time
+import threading
 import keyboard  # Thư viện để lắng nghe phím
+import random
+import re
+from collections import Counter
 
 def find_images(image_path, region, threshold=0.8):
     # Đọc ảnh mẫu cần tìm
@@ -56,17 +60,16 @@ def group_positions(positions, x_distance=30):
     # Chỉ lấy vị trí đầu tiên của mỗi nhóm
     return [group[0] for group in groups]
 
-def process_single_image(image_path, region):
-    """Chỉ xử lý một ảnh cụ thể."""
+def process_single_image(image_path, region, image_size, results_list):
+    """Xử lý một ảnh cụ thể trong một luồng."""
     print(f"Processing image: {image_path}")
     positions = find_images(image_path, region)
     if positions:
         print(f"Image found at positions: {positions}")
         grouped_positions = group_positions(positions)
-        return grouped_positions  # Trả về danh sách các nhóm vị trí
+        results_list.append((image_path, grouped_positions))  # Lưu kết quả vào danh sách kết quả
     else:
         print(f"Image not found: {image_path}")
-        return []
 
 def custom_sort_key(filename):
     order = {
@@ -96,81 +99,282 @@ def sort_images(image_list):
 
 def collect_positions(image_file, positions, image_size):
     """Lưu vị trí và tên quân bài vào mảng."""
-    image_name = os.path.splitext(image_file)[0]
+    image_name = os.path.splitext(os.path.basename(image_file))[0]  # Loại bỏ đường dẫn và mở rộng
     return [(image_name, pos) for pos in positions]
 
-def process_clicks(positions, image_size, region):
-    """In ra danh sách các vị trí và chờ người dùng nhập để nhấn vào vị trí đó."""
-    text = "Detected positions:\n"
-    for i, (name, pos) in enumerate(positions):
-        text += f"{i}: {name} at position {pos}\n"
+def logic_game(text):
+    output = []
+    # Khởi tạo danh sách trống để chứa tên và vị trí
+    names = []
+    positions = []
     
-    # In ra toàn bộ thông tin đã lưu
-    print(text)
+    # Tách các dòng trong text
+    lines = text.splitlines()
     
-    while True:
-        try:
-            choice = int(input("Enter the number of the position to click (or -1 to exit): "))
-            if 0 <= choice < len(positions):
-                name, pos = positions[choice]
-                x, y = pos
-                center_x = x + image_size[0] // 2
-                center_y = y + image_size[1] // 2
-                screen_x = center_x + region[0]
-                screen_y = center_y + region[1]
-                print(f"Clicking at position: ({screen_x}, {screen_y})")
-                pyautogui.click(screen_x, screen_y)
-                time.sleep(0.5)  # Tạm dừng giữa các lần nhấp chuột
-                break
+    # Duyệt qua từng dòng, bắt đầu từ dòng thứ 2 (bỏ qua dòng "Detected positions:")
+    for line in lines[1:]:
+        # Tách dòng bằng khoảng trắng và lấy phần tử thứ hai sau dấu hai chấm (:)
+        name = line.split(":")[1].split(" at")[0].strip()
+        position = line.split(" at position ")[1].strip()
+        # Thêm tên và vị trí vào danh sách
+        names.append(name)
+        positions.append(position)
+    
+    # Đếm số lần xuất hiện của từng quân
+    counts = Counter(names)
+    
+    # Tạo danh sách các vị trí cần loại bỏ
+    discard_positions = []
+
+    for i, name in enumerate(names):
+        # Nếu quân chỉ xuất hiện 1 lần hoặc là quân lẻ trong một nhóm 2, thì thêm vị trí vào danh sách loại bỏ
+        if counts[name] == 1 or (counts[name] % 3 != 0 and counts[name] % 2 == 1):
+            discard_positions.append(i)
+    
+    # Nếu có nhiều vị trí cần loại bỏ, chọn ngẫu nhiên 1 vị trí
+    if len(discard_positions) > 1:
+        output = random.choice(discard_positions)
+    elif len(discard_positions) == 1:
+        output = discard_positions[0]
+
+    # In ra vị trí quân cần bỏ
+    print(f"Discarded position index: {output} at position {positions[output]}")
+    
+    return output
+
+def input_text(input_string):
+        # Tách các dòng dữ liệu
+    lines = input_string.strip().split('\n')[1:]  # Bỏ dòng đầu tiên "Detected positions:"
+
+    # Tạo danh sách các mục
+    entries = []
+    for line in lines:
+        match = re.match(r'\d+: (\w+-\d+|\w+) at position \(\d+, \d+\)', line)
+        if match:
+            parts = line.split()
+            index = int(parts[0][:-1])  # Lấy index từ "0:"
+            name = parts[1]  # Tên của mục (ví dụ: "man-1", "pin-2", ...)
+            entries.append((index, name, line))
+
+    # Định nghĩa hàm để trích xuất thông tin cần thiết để sắp xếp
+    def sort_key(entry):
+        index, name, line = entry
+        if '-' in name:
+            prefix, num = name.split('-')
+            if prefix in ['man', 'sou', 'pin']:
+                return (['man', 'pin', 'sou'].index(prefix), int(num))
             else:
-                print("Invalid choice. Please enter a valid number.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+                return (float('inf'), 0)
+        else:
+            # Đặt thứ tự của các quân còn lại theo yêu cầu
+            order = {
+                "haku": 4,
+                "hatsu": 5,
+                "chun": 6,
+                "Ton": 7,
+                "Nan": 8,
+                "Sha": 9,
+                "Pei": 10
+            }
+            return (order.get(name, float('inf')), 0)
+
+    # Sắp xếp các mục theo thứ tự yêu cầu
+    sorted_entries = sorted(entries, key=sort_key)
+
+    # Tạo chuỗi đầu ra đã sắp xếp
+    output_string = "Detected positions:\n"
+    for new_index, (_, _, line) in enumerate(sorted_entries):
+        # Bỏ chỉ số cũ và giữ lại nội dung chính
+        content = line.split(': ', 1)[1]  # Lấy phần sau dấu ": "
+        output_string += f"{new_index}: {content}\n"
+        
+    return output_string
+
+riichi_detected = False
+def process_clicks(positions, image_size, region):
+    global riichi_detected
+    if riichi_detected:
+        for name, pos in positions:
+            x, y = pos
+            center_x = x + image_size[0] // 2
+            center_y = y + image_size[1] // 2
+            screen_x = center_x + region[0]
+            screen_y = center_y + region[1]
+            print(f"Clicking at position: ({screen_x}, {screen_y})")
+            pyautogui.click(screen_x, screen_y)
+            time.sleep(0.25)  # Tạm dừng giữa các lần nhấp chuột
+        # Di chuyển chuột lên giữa màn hình
+        screen_width, screen_height = pyautogui.size()
+        center_screen_x = screen_width // 2
+        center_screen_y = screen_height // 2
+        print(f"Moving mouse to center of screen: ({center_screen_x}, {center_screen_y})")
+        pyautogui.moveTo(center_screen_x, center_screen_y)
+        riichi_detected = False
+    else:
+        """In ra danh sách các vị trí và chờ người dùng nhập để nhấn vào vị trí đó."""
+        text = "Detected positions:\n"
+        for i, (name, pos) in enumerate(positions):
+            text += f"{i}: {name} at position {pos}\n"
+        
+        text = input_text(text)
+
+        # In ra toàn bộ thông tin đã lưu
+        print(text)
+        while True:
+            try:
+                choice = logic_game(text)
+                if 0 <= choice < len(positions):
+                    name, pos = positions[choice]
+                    x, y = pos
+                    center_x = x + image_size[0] // 2
+                    center_y = y + image_size[1] // 2
+                    screen_x = center_x + region[0]
+                    screen_y = center_y + region[1]
+                    print(f"Clicking at position: ({screen_x}, {screen_y})")
+                    pyautogui.click(screen_x, screen_y)
+                    time.sleep(0.1)  # Tạm dừng giữa các lần nhấp chuột
+                    # Di chuyển chuột lên giữa màn hình
+                    screen_width, screen_height = pyautogui.size()
+                    center_screen_x = screen_width // 2
+                    center_screen_y = screen_height // 2
+                    print(f"Moving mouse to center of screen: ({center_screen_x}, {center_screen_y})")
+                    pyautogui.moveTo(center_screen_x, center_screen_y)
+                    break
+                else:
+                    print("Invalid choice. Please enter a valid number.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
 
 def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path):
     """Kiểm tra liên tục và nhấn vào ảnh pass nếu phát hiện, ưu tiên các ảnh khác."""
+    global riichi_detected
     while True:
-        # Kiểm tra ảnh riichi, tsumo, ron
-        for image_path, action_name in [(riichi_image_path, 'riichi'), (tsumo_image_path, 'tsumo'), (ron_image_path, 'ron')]:
-            positions = find_images(image_path, pass_region)
+        for _ in range(3):
+            found_image = False
+            for image_path, action_name in [(riichi_image_path, 'riichi'), (tsumo_image_path, 'tsumo'), (ron_image_path, 'ron')]:
+                positions = find_images(image_path, pass_region)
+                if positions:
+                    for position in positions:
+                        x, y = position
+                        print(f"Clicking {action_name} image at: ({x + pass_region[0]}, {y + pass_region[1]})")
+                    pyautogui.click(x + pass_region[0], y + pass_region[1])
+                    found_image = True
+                    if action_name == 'riichi':
+                        riichi_detected = True
+                    break
+                if found_image:
+                    break
+            time.sleep(0.5)
+        if not found_image:
+            positions = find_images(pass_image_path, pass_region)
             if positions:
                 for position in positions:
                     x, y = position
-                    print(f"Clicking {action_name} image at: ({x + pass_region[0]}, {y + pass_region[1]})")
+                    print(f"Clicking pass image at: ({x + pass_region[0]}, {y + pass_region[1]})")
                 pyautogui.click(x + pass_region[0], y + pass_region[1])
-                break  # Ngừng kiểm tra nếu tìm thấy ảnh khác
 
-        # Kiểm tra ảnh pass nếu không có ảnh riichi, tsumo, ron
-        positions = find_images(pass_image_path, pass_region)
+        time.sleep(0.5)  # Thời gian chờ trước khi kiểm tra lại
+
+def check_pass(pass_check, pass_region_check):
+    for _ in range(3):
+        positions = find_images(pass_check, pass_region_check)
         if positions:
-            for position in positions:
-                x, y = position
-                print(f"Clicking pass image at: ({x + pass_region[0]}, {y + pass_region[1]})")
-            pyautogui.click(x + pass_region[0], y + pass_region[1])
+            return True
+        time.sleep(0.15)
+    return False
 
+# def check_start_game(start_check, start_region_check):
+#     while True:
+#         positions = find_images(start_check, start_region_check)
+#         if positions:
+#             for position in positions:
+#                 x, y = position
+#                 pyautogui.click(x + pass_region[0], y + pass_region[1])
+
+#         time.sleep(3)  # Thời gian chờ trước khi kiểm tra lại
+
+def check_end_game(end_check, end_region_check):
+    while True:
+        positions = find_images(end_check, end_region_check)
+        if positions:
+            for _ in range(10):
+                pyautogui.click(1753, 948)
+                time.sleep(3)
+            pyautogui.click(1324, 496)
         time.sleep(3)  # Thời gian chờ trước khi kiểm tra lại
 
+def check_color_in_region(region, target_colors, tolerance=5):
+    """
+    Kiểm tra xem trong vùng region có chứa một trong các màu sắc cụ thể hay không.
+    
+    :param region: Tuple chứa tọa độ vùng kiểm tra (x, y, width, height).
+    :param target_colors: Danh sách các màu cần kiểm tra, mỗi màu là một tuple (R, G, B).
+    :param tolerance: Độ chênh lệch cho phép giữa các giá trị màu sắc.
+    :return: True nếu tìm thấy màu sắc trong vùng, False nếu không.
+    """
+    
+    if check_pass(pass_image_path, pass_region):
+        return False
+    # Chụp ảnh màn hình của vùng kiểm tra
+    screenshot = pyautogui.screenshot(region=region)
+    screenshot_np = np.array(screenshot)
+
+    # Lặp qua từng màu cần kiểm tra
+    for target_color in target_colors:
+        # Tạo mặt nạ (mask) để tìm các pixel có màu tương tự target_color
+        mask = np.all(np.abs(screenshot_np - target_color) <= tolerance, axis=-1)
+        
+        # Nếu tìm thấy ít nhất một pixel khớp với màu, trả về True
+        if np.any(mask):
+            return True
+
+    # Nếu không tìm thấy màu sắc nào khớp, trả về False
+    return False
+
+# Định nghĩa các màu cần kiểm tra
+target_colors = [
+    (196, 245, 253),
+    (201, 248, 254),
+    (203, 248, 254),
+    (255, 198, 38),
+    (255, 201, 42),
+    (255, 205, 49)
+]
+
+reference_region = (1663, 772, 1737 - 1663, 867 - 772)  # Vùng cần kiểm tra
+region = (289, 840, 1422, 170)  # Vùng kiểm tra từ (289, 840) với kích thước 1422x170
+    # Đường dẫn đến thư mục chứa ảnh cần kiểm tra
+images_folder = 'images'
+    # Giả sử kích thước quân bài là cố định
+image_size = (75, 105)  # Ví dụ: chiều rộng 100px, chiều cao 150px
+pass_region = (473, 764, 1588 - 473, 865 - 764)  # Vùng kiểm tra cho ảnh pass
+pass_image_path = 'images/pass.png'
+
+end_region_check = (12, 50, 428 - 12, 146 - 50)  # Vùng kiểm tra cho ảnh pass
+end_check = 'images/end.png'
+
+# start_region_check = (1127, 257, 1323 - 1127, 451 - 428)  # Vùng kiểm tra cho ảnh pass
+# start_check = 'images/start.png'
+
 def main():
-    # Xác định vùng kiểm tra cho ảnh pass (x, y, width, height)
-    pass_region = (473, 764, 1588 - 473, 865 - 764)  # Vùng kiểm tra từ (473, 764) với kích thước 1115x101
-    pass_image_path = 'images/pass.png'  # Thay đổi đường dẫn đến ảnh pass
     riichi_image_path = 'images/riichi.png'
     tsumo_image_path = 'images/tsumo.png'
-    ron_image_path ='images/ron.png'
-    # Xác định vùng kiểm tra cho các ảnh khác (x, y, width, height)
-    region = (289, 840, 1422, 170)  # Vùng kiểm tra từ (289, 840) với kích thước 1422x170
-
-    # Đường dẫn đến thư mục chứa ảnh cần kiểm tra
-    images_folder = 'images'
-
-    # Giả sử kích thước quân bài là cố định
-    image_size = (100, 150)  # Ví dụ: chiều rộng 100px, chiều cao 150px
+    ron_image_path = 'images/ron.png'
 
     # Khởi động kiểm tra liên tục ảnh pass
-    import threading
     pass_thread = threading.Thread(target=detect_and_click_pass, args=(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path))
     pass_thread.daemon = True
     pass_thread.start()
+
+    # Khởi động kiểm tra liên tục ảnh pass
+    # end_thread = threading.Thread(target=check_end_game, args=(end_check, end_region_check))
+    # end_thread.daemon = True
+    # end_thread.start()
+
+    # # Khởi động kiểm tra liên tục ảnh pass
+    # start_thread = threading.Thread(target=check_start_game, args=(start_check, start_region_check))
+    # start_thread.daemon = True
+    # start_thread.start()
 
     while True:
         detected_positions = []  # Mảng lưu các vị trí phát hiện
@@ -178,30 +382,39 @@ def main():
         image_files = [f for f in image_files if f.lower().endswith(('.png', '.jpg', '.jpeg'))]  # Lọc các tệp ảnh
         sorted_files = sort_images(image_files)  # Sắp xếp các tệp ảnh
 
-        # Duyệt qua toàn bộ các tệp đã sắp xếp
-        for image_file in sorted_files:
-            image_path = os.path.join(images_folder, image_file)
-            grouped_positions = process_single_image(image_path, region)
-            if grouped_positions:  # Nếu có các nhóm vị trí khớp
-                # Thêm các vị trí vào mảng
-                detected_positions.extend(collect_positions(image_file, grouped_positions, image_size))
+        # Tạo danh sách các luồng cho từng ảnh
+        threads = []
+        results_list = []
+        if check_color_in_region(reference_region, target_colors):
+            for image_file in sorted_files:
+                image_path = os.path.join(images_folder, image_file)
+                thread = threading.Thread(target=process_single_image, args=(image_path, region, image_size, results_list))
+                threads.append(thread)
+                thread.start()
 
-        # In ra các ảnh đã phát hiện cùng số nhóm
-        if detected_positions:
-            print("Detected images and their positions:")
-            for name, pos in detected_positions:
-                print(f"{name} at position {pos}")
-            process_clicks(detected_positions, image_size, region)
-        else:
-            print("No images detected.")
+            # Đợi tất cả các luồng hoàn thành
+            for thread in threads:
+                thread.join()
+
+            # Xử lý kết quả từ các luồng
+            for image_path, positions in results_list:
+                if positions:  # Nếu có các nhóm vị trí khớp
+                    detected_positions.extend(collect_positions(image_path, positions, image_size))
+
+            # In ra các ảnh đã phát hiện cùng số nhóm
+            if detected_positions:
+                print("Detected images and their positions:")
+                for name, pos in detected_positions:
+                    print(f"{name} at position {pos}")
+                process_clicks(detected_positions, image_size, region)
+            else:
+                print("No images detected.")
+            
+            if keyboard.is_pressed('q'):
+                print("Exit key pressed. Exiting the program.")
+                break
         
-        # Chờ 3 giây trước khi kiểm tra lại sau khi đã chọn và nhấn vào các vị trí
-        print("Finished processing all images. Checking again in 3 seconds...")
-        if keyboard.is_pressed('q'):
-            print("Exit key pressed. Exiting the program.")
-            break
-        
-        time.sleep(3)
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     main()
