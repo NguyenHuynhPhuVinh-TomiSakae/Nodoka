@@ -102,43 +102,126 @@ def collect_positions(image_file, positions, image_size):
     image_name = os.path.splitext(os.path.basename(image_file))[0]  # Loại bỏ đường dẫn và mở rộng
     return [(image_name, pos) for pos in positions]
 
+def is_consecutive_numbers3(name1, name2, name3):
+    match1 = re.match(r'(\D+)(\d+)', name1)
+    match2 = re.match(r'(\D+)(\d+)', name2)
+    match3 = re.match(r'(\D+)(\d+)', name3)
+    
+    if not (match1 and match2 and match3):
+        return False
+    
+    prefix1, num1 = match1.groups()
+    prefix2, num2 = match2.groups()
+    prefix3, num3 = match3.groups()
+    
+    return (prefix1 == prefix2 == prefix3) and (int(num2) == int(num1) + 1) and (int(num3) == int(num2) + 1)
+
+def is_consecutive_numbers2(name1, name2):
+    match1 = re.match(r'(\D+)(\d+)', name1)
+    match2 = re.match(r'(\D+)(\d+)', name2)
+    
+    if not (match1 and match2):
+        return False
+    
+    prefix1, num1 = match1.groups()
+    prefix2, num2 = match2.groups()
+    
+    return (prefix1 == prefix2) and (int(num2) == int(num1) + 1)
+
 def logic_game(text):
-    output = []
-    # Khởi tạo danh sách trống để chứa tên và vị trí
     names = []
     positions = []
     
-    # Tách các dòng trong text
     lines = text.splitlines()
     
-    # Duyệt qua từng dòng, bắt đầu từ dòng thứ 2 (bỏ qua dòng "Detected positions:")
     for line in lines[1:]:
-        # Tách dòng bằng khoảng trắng và lấy phần tử thứ hai sau dấu hai chấm (:)
         name = line.split(":")[1].split(" at")[0].strip()
         position = line.split(" at position ")[1].strip()
-        # Thêm tên và vị trí vào danh sách
         names.append(name)
         positions.append(position)
     
-    # Đếm số lần xuất hiện của từng quân
-    counts = Counter(names)
+    valid_groups3 = []
     
-    # Tạo danh sách các vị trí cần loại bỏ
-    discard_positions = []
-
-    for i, name in enumerate(names):
-        # Nếu quân chỉ xuất hiện 1 lần hoặc là quân lẻ trong một nhóm 2, thì thêm vị trí vào danh sách loại bỏ
-        if counts[name] == 1 or (counts[name] % 3 != 0 and counts[name] % 2 == 1):
-            discard_positions.append(i)
+    i = 0
+    while i < len(names) - 2:
+        if is_consecutive_numbers3(names[i], names[i + 1], names[i + 2]):
+            valid_groups3.append((i, i + 1, i + 2))
+            i += 3
+        else:
+            i += 1
     
-    # Nếu có nhiều vị trí cần loại bỏ, chọn ngẫu nhiên 1 vị trí
-    if len(discard_positions) > 1:
-        output = random.choice(discard_positions)
-    elif len(discard_positions) == 1:
-        output = discard_positions[0]
+    i = 0
+    while i < len(names) - 2:
+        if names[i] == names[i + 1] == names[i + 2]:
+            valid_groups3.append((i, i + 1, i + 2))
+            i += 3
+        else:
+            i += 1
+    
+    all_indices3 = {index for group in valid_groups3 for index in group}
+    sorted_indices3 = sorted(all_indices3)
+    
+    if valid_groups3:
+        print(f"Valid group3 indices: {sorted_indices3}")
+    else:
+        print("No valid groups found.")
+    
+    grouped_indices3 = all_indices3
+    remaining_names3 = [name for i, name in enumerate(names) if i not in grouped_indices3]
+    remaining_positions3 = [position for i, position in enumerate(positions) if i not in grouped_indices3]
+    
+    remaining_indices3 = [i for i in range(len(names)) if i not in grouped_indices3]
 
-    # In ra vị trí quân cần bỏ
-    print(f"Discarded position index: {output} at position {positions[output]}")
+    print("\nRemaining indices after removal:")
+    print(remaining_names3)
+    print(remaining_positions3)
+    
+    valid_groups2 = []
+    
+    i = 0
+    while i < len(remaining_names3) - 1:
+        if is_consecutive_numbers2(remaining_names3[i], remaining_names3[i + 1]):
+            valid_groups2.append((i, i + 1))
+            i += 2
+        else:
+            i += 1
+    
+    i = 0
+    while i < len(remaining_names3) - 1:
+        if remaining_names3[i] == remaining_names3[i + 1]:
+            valid_groups2.append((i, i + 1))
+            i += 2
+        else:
+            i += 1
+    
+    all_indices2 = {index for group in valid_groups2 for index in group}
+    sorted_indices2 = sorted(all_indices2)
+    
+    if valid_groups2:
+        print(f"Valid group2 indices: {sorted_indices2}")
+    else:
+        print("No valid groups found.")
+    
+    grouped_indices2 = all_indices2
+    remaining_names2 = [name for i, name in enumerate(remaining_names3) if i not in grouped_indices2]
+    remaining_positions2 = [position for i, position in enumerate(remaining_positions3) if i not in grouped_indices2]
+    
+    remaining_indices2 = [i for i in range(len(remaining_names3)) if i not in grouped_indices2]
+
+    print("\nRemaining indices after removal:")
+    print(remaining_names2)
+    print(remaining_positions2)
+    
+    # Chọn ngẫu nhiên giá trị từ remaining_indices2 hoặc remaining_indices3
+    if remaining_positions2:
+        output = random.choice(remaining_positions2)
+    elif remaining_positions3:
+        output = random.choice(remaining_positions3)
+    else:
+        output = None
+
+    print("\nRandomly selected index:")
+    print(output)
     
     return output
 
@@ -190,6 +273,14 @@ def input_text(input_string):
         
     return output_string
 
+def process_position(position_str):
+    # Chuyển đổi chuỗi thành tuple (x, y)
+    position_str = position_str.strip("()")  # Xóa dấu ngoặc
+    x_str, y_str = position_str.split(",")   # Tách thành x và y
+    x = int(x_str)   # Chuyển đổi thành số nguyên
+    y = int(y_str)   # Chuyển đổi thành số nguyên
+    return x, y
+
 riichi_detected = False
 def process_clicks(positions, image_size, region):
     global riichi_detected
@@ -222,36 +313,32 @@ def process_clicks(positions, image_size, region):
         print(text)
         while True:
             try:
-                choice = logic_game(text)
-                if 0 <= choice < len(positions):
-                    name, pos = positions[choice]
-                    x, y = pos
-                    center_x = x + image_size[0] // 2
-                    center_y = y + image_size[1] // 2
-                    screen_x = center_x + region[0]
-                    screen_y = center_y + region[1]
-                    print(f"Clicking at position: ({screen_x}, {screen_y})")
-                    pyautogui.click(screen_x, screen_y)
-                    time.sleep(0.1)  # Tạm dừng giữa các lần nhấp chuột
-                    # Di chuyển chuột lên giữa màn hình
-                    screen_width, screen_height = pyautogui.size()
-                    center_screen_x = screen_width // 2
-                    center_screen_y = screen_height // 2
-                    print(f"Moving mouse to center of screen: ({center_screen_x}, {center_screen_y})")
-                    pyautogui.moveTo(center_screen_x, center_screen_y)
-                    break
-                else:
-                    print("Invalid choice. Please enter a valid number.")
+                position_str = logic_game(text)
+                x, y = process_position(position_str)
+                center_x = x + image_size[0] // 2
+                center_y = y + image_size[1] // 2
+                screen_x = center_x + region[0]
+                screen_y = center_y + region[1]
+                print(f"Clicking at position: ({screen_x}, {screen_y})")
+                pyautogui.click(screen_x, screen_y)
+                time.sleep(0.1)  # Tạm dừng giữa các lần nhấp chuột
+                # Di chuyển chuột lên giữa màn hình
+                screen_width, screen_height = pyautogui.size()
+                center_screen_x = screen_width // 2
+                center_screen_y = screen_height // 2
+                print(f"Moving mouse to center of screen: ({center_screen_x}, {center_screen_y})")
+                pyautogui.moveTo(center_screen_x, center_screen_y)
+                break
             except ValueError:
                 print("Invalid input. Please enter a number.")
 
-def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path):
+def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path):
     """Kiểm tra liên tục và nhấn vào ảnh pass nếu phát hiện, ưu tiên các ảnh khác."""
     global riichi_detected
     while True:
         for _ in range(3):
             found_image = False
-            for image_path, action_name in [(riichi_image_path, 'riichi'), (tsumo_image_path, 'tsumo'), (ron_image_path, 'ron')]:
+            for image_path, action_name in [(riichi_image_path, 'riichi'), (tsumo_image_path, 'tsumo'), (ron_image_path, 'ron'), (kita_image_path, 'kita')]:
                 positions = find_images(image_path, pass_region)
                 if positions:
                     for position in positions:
@@ -299,7 +386,7 @@ def check_end_game(end_check, end_region_check):
         if positions:
             for _ in range(10):
                 pyautogui.click(1753, 948)
-                time.sleep(3)
+                time.sleep(1)
             pyautogui.click(1324, 496)
         time.sleep(3)  # Thời gian chờ trước khi kiểm tra lại
 
@@ -360,16 +447,17 @@ def main():
     riichi_image_path = 'images/riichi.png'
     tsumo_image_path = 'images/tsumo.png'
     ron_image_path = 'images/ron.png'
+    kita_image_path = 'images/kita.png'
 
     # Khởi động kiểm tra liên tục ảnh pass
-    pass_thread = threading.Thread(target=detect_and_click_pass, args=(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path))
+    pass_thread = threading.Thread(target=detect_and_click_pass, args=(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path))
     pass_thread.daemon = True
     pass_thread.start()
 
     # Khởi động kiểm tra liên tục ảnh pass
-    # end_thread = threading.Thread(target=check_end_game, args=(end_check, end_region_check))
-    # end_thread.daemon = True
-    # end_thread.start()
+    end_thread = threading.Thread(target=check_end_game, args=(end_check, end_region_check))
+    end_thread.daemon = True
+    end_thread.start()
 
     # # Khởi động kiểm tra liên tục ảnh pass
     # start_thread = threading.Thread(target=check_start_game, args=(start_check, start_region_check))
