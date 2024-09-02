@@ -332,9 +332,10 @@ def input_text(input_string):
         
     return output_string
 
-def process_position(position_str, screen_width, screen_height):
+def process_position(position_str):
     # Nếu position_str không phải là chuỗi, trả về trung tâm màn hình
     if not isinstance(position_str, str):
+        screen_width, screen_height = pyautogui.size()
         return screen_width // 2, screen_height // 2
     
     # Chuyển đổi chuỗi thành tuple (x, y)
