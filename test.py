@@ -115,28 +115,47 @@ def logic_game(text):
     if remaining_positions2:
         output = random.choice(remaining_positions2)
     elif remaining_positions3:
-        output = random.choice(remaining_positions3)
-    else:
-        output = None
+        # Lặp qua danh sách và kiểm tra điều kiện
+        for index, value in enumerate(remaining_names3):
+            # Tách phần số sau dấu gạch ngang
+            number_part = value.split('-')[-1]
+            
+            # Kiểm tra nếu phần số này là 1 hoặc 9
+            if number_part == '1' or number_part == '9':
+                print(f"Index: {index}, Value: {value}")
+                output = remaining_positions3[index]
+                return output
 
-    print("\nRandomly selected index:")
-    print(output)
+        seen_values = set()
+        for index, value in enumerate(remaining_names3):
+            if value in seen_values:
+                # Nếu giá trị đã xuất hiện trước đó, in ra và dừng lại
+                print(f"Giá trị {index} trùng lặp:", value)
+                output = remaining_positions3[index]
+                return output
+                break
+            seen_values.add(value)
+
+        output = random.choice(remaining_positions3)
+        print("\nRandomly selected index:")
+        print(output)
+        return output
 
 # Ví dụ sử dụng
 text = """Detected positions:
-0: man-4 at position (17, 47)
+0: man-3 at position (17, 47)
 1: man-4 at position (114, 46)
 2: man-5 at position (213, 51)
 3: pin-4 at position (309, 51)
 4: pin-4 at position (405, 52)
 5: pin-4 at position (1316, 51)
-6: pin-5 at position (501, 52)
+6: pin-7 at position (501, 52)
 7: pin-8 at position (597, 50)
-8: sou-5 at position (692, 52)
+8: sou-6 at position (692, 52)
 9: sou-7 at position (788, 52)
 10: sou-8 at position (885, 50)
-11: chun at position (1173, 50)
+11: nan at position (1173, 50)
 12: nan at position (979, 49)
 13: nan at position (1076, 48)"""
 
-logic_game(text)
+print(logic_game(text))

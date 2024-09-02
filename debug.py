@@ -62,10 +62,14 @@ def group_positions(positions, x_distance=30):
 
 def process_single_image(image_path, region, image_size, results_list):
     """Xử lý một ảnh cụ thể trong một luồng."""
+    print(f"Processing image: {image_path}")
     positions = find_images(image_path, region)
     if positions:
+        print(f"Image found at positions: {positions}")
         grouped_positions = group_positions(positions)
         results_list.append((image_path, grouped_positions))  # Lưu kết quả vào danh sách kết quả
+    else:
+        print(f"Image not found: {image_path}")
 
 def custom_sort_key(filename):
     order = {
@@ -157,12 +161,21 @@ def logic_game(text):
     all_indices3 = {index for group in valid_groups3 for index in group}
     sorted_indices3 = sorted(all_indices3)
     
+    if valid_groups3:
+        print(f"Valid group3 indices: {sorted_indices3}")
+    else:
+        print("No valid groups found.")
+    
     grouped_indices3 = all_indices3
     remaining_names3 = [name for i, name in enumerate(names) if i not in grouped_indices3]
     remaining_positions3 = [position for i, position in enumerate(positions) if i not in grouped_indices3]
     
     remaining_indices3 = [i for i in range(len(names)) if i not in grouped_indices3]
 
+    print("\nRemaining indices after removal:")
+    print(remaining_names3)
+    print(remaining_positions3)
+    
     valid_groups2 = []
     
     i = 0
@@ -184,11 +197,20 @@ def logic_game(text):
     all_indices2 = {index for group in valid_groups2 for index in group}
     sorted_indices2 = sorted(all_indices2)
     
+    if valid_groups2:
+        print(f"Valid group2 indices: {sorted_indices2}")
+    else:
+        print("No valid groups found.")
+    
     grouped_indices2 = all_indices2
     remaining_names2 = [name for i, name in enumerate(remaining_names3) if i not in grouped_indices2]
     remaining_positions2 = [position for i, position in enumerate(remaining_positions3) if i not in grouped_indices2]
     
     remaining_indices2 = [i for i in range(len(remaining_names3)) if i not in grouped_indices2]
+
+    print("\nRemaining indices after removal:")
+    print(remaining_names2)
+    print(remaining_positions2)
 
     output = 0
     
@@ -204,6 +226,7 @@ def logic_game(text):
             
             # Kiểm tra nếu phần số này là 1 hoặc 9
             if number_part == '1' or number_part == '9':
+                print(f"Index: {index}, Value: {value}")
                 output = remaining_positions3[index]
                 return output
 
@@ -211,11 +234,14 @@ def logic_game(text):
         for index, value in enumerate(remaining_names3):
             if value in seen_values:
                 # Nếu giá trị đã xuất hiện trước đó, in ra và dừng lại
+                print(f"Giá trị {index} trùng lặp:", value)
                 output = remaining_positions3[index]
                 return output
             seen_values.add(value)
 
         output = random.choice(remaining_positions3)
+        print("\nRandomly selected index:")
+        print(output)
         return output
     return output
 
@@ -285,12 +311,14 @@ def process_clicks(positions, image_size, region):
             center_y = y + image_size[1] // 2
             screen_x = center_x + region[0]
             screen_y = center_y + region[1]
+            print(f"Clicking at position: ({screen_x}, {screen_y})")
             pyautogui.click(screen_x, screen_y)
             time.sleep(0.25)  # Tạm dừng giữa các lần nhấp chuột
         # Di chuyển chuột lên giữa màn hình
         screen_width, screen_height = pyautogui.size()
         center_screen_x = screen_width // 2
         center_screen_y = screen_height // 2
+        print(f"Moving mouse to center of screen: ({center_screen_x}, {center_screen_y})")
         pyautogui.moveTo(center_screen_x, center_screen_y)
         riichi_detected = False
     else:
@@ -302,21 +330,27 @@ def process_clicks(positions, image_size, region):
         text = input_text(text)
 
         # In ra toàn bộ thông tin đã lưu
+        print(text)
         while True:
-            position_str = logic_game(text)
-            x, y = process_position(position_str)
-            center_x = x + image_size[0] // 2
-            center_y = y + image_size[1] // 2
-            screen_x = center_x + region[0]
-            screen_y = center_y + region[1]
-            pyautogui.click(screen_x, screen_y)
-            time.sleep(0.1)  # Tạm dừng giữa các lần nhấp chuột
-            # Di chuyển chuột lên giữa màn hình
-            screen_width, screen_height = pyautogui.size()
-            center_screen_x = screen_width // 2
-            center_screen_y = screen_height // 2
-            pyautogui.moveTo(center_screen_x, center_screen_y)
-            break
+            try:
+                position_str = logic_game(text)
+                x, y = process_position(position_str)
+                center_x = x + image_size[0] // 2
+                center_y = y + image_size[1] // 2
+                screen_x = center_x + region[0]
+                screen_y = center_y + region[1]
+                print(f"Clicking at position: ({screen_x}, {screen_y})")
+                pyautogui.click(screen_x, screen_y)
+                time.sleep(0.1)  # Tạm dừng giữa các lần nhấp chuột
+                # Di chuyển chuột lên giữa màn hình
+                screen_width, screen_height = pyautogui.size()
+                center_screen_x = screen_width // 2
+                center_screen_y = screen_height // 2
+                print(f"Moving mouse to center of screen: ({center_screen_x}, {center_screen_y})")
+                pyautogui.moveTo(center_screen_x, center_screen_y)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a number.")
 
 def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path, pon_image_path, kan_image_path, chii_image_path):
     """Kiểm tra liên tục và nhấn vào ảnh pass nếu phát hiện, ưu tiên các ảnh khác."""
@@ -330,10 +364,12 @@ def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo
                     if positions:
                         for position in positions:
                             x, y = position
+                            print(f"Clicking pass image at: ({x + pass_region[0]}, {y + pass_region[1]})")
                         pyautogui.click(x + pass_region[0], y + pass_region[1])
                         break
                 for position in positions:
                     x, y = position
+                    print(f"Clicking {action_name} image at: ({x + pass_region[0]}, {y + pass_region[1]})")
                 pyautogui.click(x + pass_region[0], y + pass_region[1])
                 if action_name == 'riichi':
                     riichi_detected = True
@@ -478,7 +514,12 @@ def main():
 
             # In ra các ảnh đã phát hiện cùng số nhóm
             if detected_positions:
+                print("Detected images and their positions:")
+                for name, pos in detected_positions:
+                    print(f"{name} at position {pos}")
                 process_clicks(detected_positions, image_size, region)
+            else:
+                print("No images detected.")
             
             if keyboard.is_pressed('q'):
                 print("Exit key pressed. Exiting the program.")
