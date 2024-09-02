@@ -233,11 +233,14 @@ def logic_game(text):
                 if current_name == next_name and abs(current_number - next_number) == 2:
                     # Kiểm tra phần tử trước current
                     if index > 0:  # Đảm bảo index không âm để có phần tử trước current
-                        prev_name, prev_number = remaining_names3[index - 1].rsplit('-', 1)
-                        prev_number = int(prev_number)
-                        
-                        # Kiểm tra nếu tên khác current hoặc tên giống nhưng số cách current 2 số
-                        if prev_name != current_name or abs(current_number - prev_number) == 2:
+                        if '-' in remaining_names3[index - 1]:
+                            prev_name, prev_number = remaining_names3[index - 1].rsplit('-', 1)
+                            prev_number = int(prev_number)
+                            # Kiểm tra nếu tên khác current hoặc tên giống nhưng số cách current 2 số
+                            if prev_name != current_name or abs(current_number - prev_number) == 2:
+                                output = remaining_positions3[index]
+                                return output
+                        else:
                             output = remaining_positions3[index]
                             return output
                     else:
@@ -246,11 +249,14 @@ def logic_game(text):
                     
                     # Kiểm tra phần tử sau next
                     if index + 2 < len(remaining_names3):  # Đảm bảo index không vượt quá danh sách
-                        after_name, after_number = remaining_names3[index + 2].rsplit('-', 1)
-                        after_number = int(after_number)
-                        
-                        # Kiểm tra nếu tên khác next hoặc tên giống nhưng số cách next 2 số
-                        if after_name != next_name or abs(after_number - next_number) == 2:
+                        if '-' in remaining_names3[index + 2]: 
+                            after_name, after_number = remaining_names3[index + 2].rsplit('-', 1)
+                            after_number = int(after_number)
+                            # Kiểm tra nếu tên khác next hoặc tên giống nhưng số cách next 2 số
+                            if after_name != next_name or abs(after_number - next_number) == 2:
+                                output = remaining_positions3[index + 1]
+                                return output
+                        else:
                             output = remaining_positions3[index + 1]
                             return output
                     else:
