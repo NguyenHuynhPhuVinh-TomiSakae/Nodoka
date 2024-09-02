@@ -381,7 +381,13 @@ def check_end_game(end_check, end_region_check):
             for _ in range(10):
                 pyautogui.click(1753, 948)
                 time.sleep(1)
-            pyautogui.click(1324, 496)
+
+            if game_mode == 0:
+                pyautogui.click(1324, 496)
+            elif game_mode == 1:
+                pyautogui.click(1161, 626)
+                time.sleep(1)
+                pyautogui.click(1030, 893)
         time.sleep(3)  # Thời gian chờ trước khi kiểm tra lại
 
 def check_color_in_region(region, target_colors, tolerance=5):
@@ -435,6 +441,8 @@ end_check = 'images/end.png'
 
 # start_region_check = (1127, 257, 1323 - 1127, 451 - 428)  # Vùng kiểm tra cho ảnh pass
 # start_check = 'images/start.png'
+
+game_mode = 0
 
 def main():
     riichi_image_path = 'images/riichi.png'
