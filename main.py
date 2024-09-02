@@ -332,7 +332,11 @@ def input_text(input_string):
         
     return output_string
 
-def process_position(position_str):
+def process_position(position_str, screen_width, screen_height):
+    # Nếu position_str không phải là chuỗi, trả về trung tâm màn hình
+    if not isinstance(position_str, str):
+        return screen_width // 2, screen_height // 2
+    
     # Chuyển đổi chuỗi thành tuple (x, y)
     position_str = position_str.strip("()")  # Xóa dấu ngoặc
     x_str, y_str = position_str.split(",")   # Tách thành x và y
