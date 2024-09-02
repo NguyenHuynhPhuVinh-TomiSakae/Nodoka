@@ -332,35 +332,29 @@ def process_clicks(positions, image_size, region):
             except ValueError:
                 print("Invalid input. Please enter a number.")
 
-def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path):
+def detect_and_click_pass(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path, pon_image_path, kan_image_path, chii_image_path):
     """Kiểm tra liên tục và nhấn vào ảnh pass nếu phát hiện, ưu tiên các ảnh khác."""
     global riichi_detected
     while True:
-        for _ in range(3):
-            found_image = False
-            for image_path, action_name in [(riichi_image_path, 'riichi'), (tsumo_image_path, 'tsumo'), (ron_image_path, 'ron'), (kita_image_path, 'kita')]:
-                positions = find_images(image_path, pass_region)
-                if positions:
-                    for position in positions:
-                        x, y = position
-                        print(f"Clicking {action_name} image at: ({x + pass_region[0]}, {y + pass_region[1]})")
-                    pyautogui.click(x + pass_region[0], y + pass_region[1])
-                    found_image = True
-                    if action_name == 'riichi':
-                        riichi_detected = True
-                    break
-                if found_image:
-                    break
-            time.sleep(0.5)
-        if not found_image:
-            positions = find_images(pass_image_path, pass_region)
+        for image_path, action_name in [(riichi_image_path, 'riichi'), (tsumo_image_path, 'tsumo'), (ron_image_path, 'ron'), (kita_image_path, 'kita'), (pon_image_path, 'pon'), (kan_image_path, 'kan'), (chii_image_path, 'chii')]:
+            positions = find_images(image_path, pass_region)
             if positions:
+                if action_name == 'pon' or action_name == 'kan' or action_name == 'chii':
+                    positions = find_images(pass_image_path, pass_region)
+                    if positions:
+                        for position in positions:
+                            x, y = position
+                            print(f"Clicking pass image at: ({x + pass_region[0]}, {y + pass_region[1]})")
+                        pyautogui.click(x + pass_region[0], y + pass_region[1])
+                        break
                 for position in positions:
                     x, y = position
-                    print(f"Clicking pass image at: ({x + pass_region[0]}, {y + pass_region[1]})")
+                    print(f"Clicking {action_name} image at: ({x + pass_region[0]}, {y + pass_region[1]})")
                 pyautogui.click(x + pass_region[0], y + pass_region[1])
-
-        time.sleep(0.5)  # Thời gian chờ trước khi kiểm tra lại
+                if action_name == 'riichi':
+                    riichi_detected = True
+                break
+        time.sleep(1)  # Thời gian chờ trước khi kiểm tra lại
 
 def check_pass(pass_check, pass_region_check):
     for _ in range(3):
@@ -400,8 +394,6 @@ def check_color_in_region(region, target_colors, tolerance=5):
     :return: True nếu tìm thấy màu sắc trong vùng, False nếu không.
     """
     
-    if check_pass(pass_image_path, pass_region):
-        return False
     # Chụp ảnh màn hình của vùng kiểm tra
     screenshot = pyautogui.screenshot(region=region)
     screenshot_np = np.array(screenshot)
@@ -413,7 +405,8 @@ def check_color_in_region(region, target_colors, tolerance=5):
         
         # Nếu tìm thấy ít nhất một pixel khớp với màu, trả về True
         if np.any(mask):
-            return True
+            if not check_pass(pass_image_path, pass_region):
+                return True
 
     # Nếu không tìm thấy màu sắc nào khớp, trả về False
     return False
@@ -448,9 +441,12 @@ def main():
     tsumo_image_path = 'images/tsumo.png'
     ron_image_path = 'images/ron.png'
     kita_image_path = 'images/kita.png'
+    pon_image_path = 'images/pon.png'
+    kan_image_path = 'images/kan.png'
+    chii_image_path = 'images/chii.png'
 
     # Khởi động kiểm tra liên tục ảnh pass
-    pass_thread = threading.Thread(target=detect_and_click_pass, args=(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path))
+    pass_thread = threading.Thread(target=detect_and_click_pass, args=(pass_image_path, pass_region, riichi_image_path, tsumo_image_path, ron_image_path, kita_image_path, pon_image_path, kan_image_path, chii_image_path))
     pass_thread.daemon = True
     pass_thread.start()
 
